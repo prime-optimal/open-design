@@ -151,6 +151,7 @@ import type { OnboardingEntry } from '../onboarding/onboarding-entry';
 import { AnimatePresence } from 'motion/react';
 import { DeepSeekV4FlashCampaign } from './DeepSeekV4FlashCampaign';
 import type { DeepSeekV4FlashCampaignAudience } from '../campaigns/deepseek-v4-flash';
+import { hostFolderPickerErrorMessage } from './host-folder-picker-error';
 
 export interface ActivePlugin {
   record: InstalledPluginRecord;
@@ -334,6 +335,7 @@ interface Props {
    * instance is a second HomeView, so it keeps its own draft rather than
    * fighting Home's over one piece of state.
    */
+  referralNotice?: ReactNode;
   variant?: 'page' | 'dock';
 }
 
@@ -531,6 +533,7 @@ export function HomeView({
   onDeepSeekV4FlashCampaignUseNow,
   deepSeekV4FlashCampaignMetricsConsent = false,
   deepSeekV4FlashCampaignInstallationId = null,
+  referralNotice,
   variant = 'page',
 }: Props) {
   const { locale, t } = useI18n();
@@ -2189,7 +2192,7 @@ export function HomeView({
       // auth gate and surface as a confusing late create-time failure.
       // Surface the host error instead and keep the existing working dir.
       setError(
-        `Couldn't open the folder picker (${'reason' in result ? result.reason : 'host unavailable'}). Please update OpenDesign and try again.`,
+        hostFolderPickerErrorMessage(result),
       );
       return null;
     }
@@ -2214,7 +2217,7 @@ export function HomeView({
       }
       if ('canceled' in result && result.canceled) return null;
       setError(
-        `Couldn't open the folder picker (${'reason' in result ? result.reason : 'host unavailable'}). Please update OpenDesign and try again.`,
+        hostFolderPickerErrorMessage(result),
       );
       return null;
     }
@@ -3133,6 +3136,7 @@ export function HomeView({
         />
       )}
       <HomeHero
+        referralNotice={referralNotice}
         inviteSurface={variant === 'dock' ? undefined : inviteSurface}
         variant={variant}
         collapseSignal={collapseSignal}
