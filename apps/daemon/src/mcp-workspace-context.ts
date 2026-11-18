@@ -69,7 +69,7 @@ const lastFailureAt = new Map<string, number>();
  */
 export async function resolveMcpWorkspaceContext(
   baseUrl: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; headers?: Record<string, string> } = {},
 ): Promise<McpWorkspaceContext | null> {
   const now = Date.now();
   const cached = cache.get(baseUrl);
@@ -87,6 +87,7 @@ export async function resolveMcpWorkspaceContext(
 
   try {
     const resp = await fetch(`${baseUrl}/api/workspace/directory`, {
+      ...(options.headers ? { headers: options.headers } : {}),
       signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS),
     });
     if (!resp.ok) {

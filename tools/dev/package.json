@@ -1,6 +1,6 @@
 {
   "name": "@open-design/tools-dev",
-  "version": "0.25.1",
+  "version": "0.27.1",
   "private": true,
   "type": "module",
   "bin": {
@@ -25,7 +25,7 @@
     "tsx": "4.22.3"
   },
   "optionalDependencies": {
-    "@powerformer/vela-cli": "0.1.8"
+    "@powerformer/vela-cli": "0.1.9"
   },
   "engines": {
     "node": "~24"

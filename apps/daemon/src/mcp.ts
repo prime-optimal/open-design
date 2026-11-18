@@ -79,6 +79,11 @@ type JsonObject = Record<string, unknown>;
 interface RunMcpOptions {
   daemonUrl: string | URL;
   resolveDaemonUrl?: () => Promise<string | URL>;
+  /**
+   * Validated browser-facing origin for previewUrl/studioUrl. Daemon calls
+   * still use daemonUrl; when unset, links derive from the daemon as before.
+   */
+  publicBaseUrl?: string | null;
 }
 interface CatalogItem { id: string; name?: string; title?: string; description?: string; summary?: string }
 interface SkillsPayload { skills?: CatalogItem[] }
@@ -100,6 +105,7 @@ interface HandleMcpToolCallOptions {
   analyticsHeaders?: Record<string, string>;
   pluginAttribution?: McpPluginAttribution | null;
   briefState?: 'confirmed' | 'skipped' | 'not_applicable';
+  publicBaseUrl?: string | null;
 }
 interface McpPluginAttribution {
   context: ExternalPluginContext;
@@ -1569,6 +1575,7 @@ async function observeMcpToolCall(
   daemonTarget: ReturnType<typeof createMcpDaemonTarget>,
   nameValue: unknown,
   args: McpArgs,
+  publicBaseUrl: string | null = null,
 ): Promise<McpToolCallResult> {
   const name = typeof nameValue === 'string' ? nameValue : 'unknown';
   const startedAt = Date.now();
@@ -1653,6 +1660,7 @@ async function observeMcpToolCall(
     session.updateBaseUrl(baseUrl);
     return await handleMcpToolCall(baseUrl, name, args, {
       briefStore,
+      ...(publicBaseUrl ? { publicBaseUrl } : {}),
       analyticsHeaders: session.headers(attribution, requestId),
       pluginAttribution: attribution,
       ...(attribution
@@ -2047,6 +2055,7 @@ export function createMcpServer(
       daemonTarget,
       name,
       args,
+      options.publicBaseUrl ?? null,
     );
   }));
 
@@ -2254,11 +2263,11 @@ async function handleMcpToolCall(
         const resolvedDir = typeof data?.resolvedDir === 'string' ? data.resolvedDir : null;
         const declaredEntry = project?.metadata?.entryFile ?? null;
         const entryFile = await resolveProjectEntry(baseUrl, id, declaredEntry, headers);
-        const previewUrl = rawPreviewUrl(baseUrl, id, entryFile);
+        const previewUrl = rawPreviewUrl(options.publicBaseUrl ?? baseUrl, id, entryFile);
         // Build the studio deep link too — needs the project's
         // default conversation, which we look up once. Cheap to skip
         // when the daemon has no webBaseUrl configured.
-        const webBase = await getWebBaseUrl(baseUrl);
+        const webBase = options.publicBaseUrl ?? await getWebBaseUrl(baseUrl);
         const conversationId = webBase ? await getDefaultConversationId(baseUrl, id, headers) : null;
         const studioUrl = buildStudioUrl(webBase, id, conversationId, entryFile);
         return ok(
@@ -2376,7 +2385,7 @@ async function handleMcpToolCall(
       case 'start_run':
         return await startRun(baseUrl, args, options, headers);
       case 'get_run':
-        return await getRun(baseUrl, args, headers);
+        return await getRun(baseUrl, args, headers, options);
       case 'cancel_run': {
         requireString(args.runId, 'runId');
         return ok(
@@ -2702,7 +2711,7 @@ async function startRun(
   // outer agent has a URL to give the user right away. The daemon
   // returns conversationId in the response now that POST /api/runs
   // falls back to the project's default conversation for MCP callers.
-  const webBase = await getWebBaseUrl(baseUrl);
+  const webBase = options.publicBaseUrl ?? await getWebBaseUrl(baseUrl);
   const studioUrl = buildStudioUrl(webBase, id, created?.conversationId, null);
   return ok(
     withActiveEcho(
@@ -2743,6 +2752,7 @@ async function getRun(
   baseUrl: string,
   args: McpArgs,
   headers?: Record<string, string>,
+  options: HandleMcpToolCallOptions = {},
 ) {
   requireString(args.runId, 'runId');
   const status = await getJson<JsonObject>(
@@ -2754,7 +2764,7 @@ async function getRun(
     // eventsLogPath with a tail hint so the outer agent can watch live
     // progress in its own shell instead of cancelling because polling
     // shows nothing changing.
-    const webBase = await getWebBaseUrl(baseUrl);
+    const webBase = options.publicBaseUrl ?? await getWebBaseUrl(baseUrl);
     const studioUrl = buildStudioUrl(webBase, status.projectId, status.conversationId, null);
     const enriched: JsonObject = { ...status };
     if (studioUrl) enriched.studioUrl = studioUrl;
@@ -2794,10 +2804,10 @@ async function getRun(
   }
   const [agentMessage, webBase] = await Promise.all([
     fetchRunAgentMessage(baseUrl, String(status.id ?? args.runId), headers),
-    getWebBaseUrl(baseUrl),
+    options.publicBaseUrl ? Promise.resolve(options.publicBaseUrl) : getWebBaseUrl(baseUrl),
   ]);
   const previewUrl = entryFile
-    ? rawPreviewUrl(baseUrl, status.projectId, entryFile)
+    ? rawPreviewUrl(options.publicBaseUrl ?? baseUrl, status.projectId, entryFile)
     : null;
   const studioUrl = buildStudioUrl(webBase, status.projectId, status.conversationId, entryFile);
   const enriched: JsonObject = { ...status };

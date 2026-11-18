@@ -16,6 +16,9 @@ ENV http_proxy=${http_proxy}
 ENV https_proxy=${https_proxy}
 ENV no_proxy=${no_proxy}
 ENV NO_PROXY=${NO_PROXY}
+ENV NODE_USE_ENV_PROXY=1
+ENV ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 ENV CI=true
 
 RUN apk add --no-cache python3 make g++

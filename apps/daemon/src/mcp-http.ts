@@ -30,6 +30,33 @@ function reject(res: Response, status: number, message: string) {
   res.status(status).json({ jsonrpc: '2.0', error: { code: -32000, message }, id: null });
 }
 
+/**
+ * Browser-facing origin for HTTP MCP preview and studio links. Unset keeps the
+ * daemon-derived links; a set value must be a bare http(s) origin so a typo
+ * or secret-bearing URL cannot leak into tool results.
+ */
+export function publicBaseUrlFromEnv(env: NodeJS.ProcessEnv): string | null {
+  const raw = (env.OD_PUBLIC_BASE_URL ?? '').trim();
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('OD_PUBLIC_BASE_URL must be an absolute http(s) origin');
+  }
+  if (
+    (url.protocol !== 'http:' && url.protocol !== 'https:')
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+    || url.pathname !== '/'
+  ) {
+    throw new Error('OD_PUBLIC_BASE_URL must be a bare http(s) origin without credentials, path, query, or fragment');
+  }
+  return url.origin;
+}
+
 export function registerHttpMcpRoutes(app: Express, options: HttpMcpOptions) {
   const env = options.env ?? process.env;
   const now = options.now ?? Date.now;
@@ -38,6 +65,7 @@ export function registerHttpMcpRoutes(app: Express, options: HttpMcpOptions) {
   if (!Number.isInteger(maxSessions) || maxSessions < 1 || !Number.isFinite(idleMs) || idleMs < 1) {
     throw new Error('HTTP MCP session limits must be positive');
   }
+  const publicBaseUrl = publicBaseUrlFromEnv(env);
   const sessions = new Map<string, Session>();
   let closed = false;
 
@@ -116,7 +144,7 @@ export function registerHttpMcpRoutes(app: Express, options: HttpMcpOptions) {
       }
       id = randomUUID();
       const reservedId = id;
-      const server = createMcpServer({ daemonUrl: options.daemonUrl() });
+      const server = createMcpServer({ daemonUrl: options.daemonUrl(), publicBaseUrl });
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => reservedId,
         enableJsonResponse: true,
