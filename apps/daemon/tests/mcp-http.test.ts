@@ -32,6 +32,11 @@ async function harness(options: {
     await options.projects?.();
     res.json({ projects: [{ id: 'example', name: 'Example' }] });
   });
+  app.get('/api/projects/:id', (req, res) => {
+    res.json({ project: { id: req.params.id, name: 'Example', metadata: { entryFile: 'index.html' } } });
+  });
+  app.get('/api/projects/:id/conversations', (_req, res) => res.json({ conversations: [{ id: 'conv-1' }] }));
+  app.get('/api/mcp/install-info', (_req, res) => res.json({ webBaseUrl: `http://127.0.0.1:${port}` }));
   const lifecycle = registerHttpMcpRoutes(app, {
     daemonUrl: () => `http://127.0.0.1:${port}`,
     port: () => port,
@@ -233,5 +238,38 @@ describe('authenticated HTTP MCP', () => {
     } finally {
       release();
     }
+  });
+});
+
+describe('HTTP MCP browser links', () => {
+  async function projectLinks(env: NodeJS.ProcessEnv) {
+    const { client } = await harness({ env });
+    const connected = await client();
+    const result = await connected.client.callTool({ name: 'get_project', arguments: { project: 'example' } });
+    return JSON.parse((result.content as Array<{ text: string }>)[0]!.text) as Record<string, string>;
+  }
+
+  it('uses the configured public origin for preview and studio links', async () => {
+    const links = await projectLinks({ OD_API_TOKEN: token, OD_PUBLIC_BASE_URL: 'https://od.example.ts.net/' });
+    expect(links.previewUrl).toBe('https://od.example.ts.net/api/projects/example/raw/index.html');
+    expect(links.studioUrl).toBe('https://od.example.ts.net/projects/example/conversations/conv-1/files/index.html');
+    expect(JSON.stringify(links)).not.toContain(token);
+  });
+
+  it('keeps daemon-derived links when no public origin is configured', async () => {
+    const links = await projectLinks({ OD_API_TOKEN: token });
+    expect(links.previewUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/projects\/example\/raw\/index\.html$/);
+    expect(links.studioUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/projects\/example\//);
+  });
+
+  it.each([
+    'not a url',
+    'ftp://od.example',
+    'https://user:pass@od.example',
+    'https://od.example/app',
+    'https://od.example/?token=x',
+    'https://od.example/#x',
+  ])('rejects invalid public origin %s', async (value) => {
+    await expect(harness({ env: { OD_API_TOKEN: token, OD_PUBLIC_BASE_URL: value } })).rejects.toThrow(/OD_PUBLIC_BASE_URL/);
   });
 });

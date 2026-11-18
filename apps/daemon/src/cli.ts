@@ -15,7 +15,7 @@ import { parseDesignSystemRenameArgs } from './design-systems/rename-args.js';
 import { runLiveArtifactsToolCli } from './tools-live-artifacts-cli.js';
 import { runDeliverableSyntaxToolCli } from './tools-deliverable-syntax-cli.js';
 import { splitResearchSubcommand } from './research/cli-args.js';
-import { resolveDaemonUrl } from './daemon-url.js';
+import { daemonFetch as fetch, operatorAuthHeaders, resolveCliDaemonUrl } from './cli-daemon-auth.js';
 import { byokProviderFromCliOptions } from './runtimes/byok-cli.js';
 import { BYOK_OPENCODE_AGENT_ID } from './runtimes/byok-opencode.js';
 import { redactSecrets } from './connectionTest.js';
@@ -2706,7 +2706,7 @@ function repeatableFlagValues(argv, name) {
 }
 
 async function cliDaemonUrl(flags) {
-  return resolveDaemonUrl({ flagUrl: flags?.['daemon-url'] });
+  return resolveCliDaemonUrl({ flagUrl: flags?.['daemon-url'] });
 }
 
 async function cliDaemonBaseUrl(flags) {
@@ -7793,7 +7793,7 @@ Common options:
           { headers: scopeHeaders },
         );
       } else {
-        const ctx = await resolveMcpWorkspaceContext(base);
+        const ctx = await resolveMcpWorkspaceContext(base, { headers: operatorAuthHeaders(base) });
         if (ctx) {
           scopeHeaders = ctx.headers;
           listResp = await fetch(

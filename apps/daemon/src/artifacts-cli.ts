@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { postCreateArtifactRequest } from './artifacts/create.js';
-import { resolveDaemonUrl } from './daemon-url.js';
+import { operatorAuthHeaders, resolveCliDaemonUrl } from './cli-daemon-auth.js';
 import { resolveProjectArg, withActiveEcho } from './mcp.js';
 
 type JsonObject = Record<string, unknown>;
@@ -115,10 +115,11 @@ export async function runArtifactsCli(args: string[]): Promise<ArtifactCliResult
   if (!options.inputPath) return fail('create requires --input <file>');
 
   try {
-    const daemonUrl = await resolveDaemonUrl(
+    const daemonUrl = await resolveCliDaemonUrl(
       options.daemonUrl === undefined ? {} : { flagUrl: options.daemonUrl },
     );
-    const { id, resolved, active } = await resolveProjectArg(daemonUrl, options.project);
+    const headers = operatorAuthHeaders(daemonUrl);
+    const { id, resolved, active } = await resolveProjectArg(daemonUrl, options.project, headers);
     const fileBuffer = await readFile(options.inputPath);
     const content = options.encoding === 'base64' ? fileBuffer.toString('base64') : fileBuffer.toString('utf8');
     const artifactManifest = options.manifestPath === undefined
@@ -126,6 +127,7 @@ export async function runArtifactsCli(args: string[]): Promise<ArtifactCliResult
       : await readJsonObject(options.manifestPath);
     const response = await postCreateArtifactRequest({
       baseUrl: daemonUrl,
+      headers,
       projectId: id,
       input: {
         name: options.name,

@@ -9,7 +9,7 @@
 // mirrors artifacts-cli.ts / runArtifactsCli.
 
 import type { HandoffRequest, HandoffResponse } from '@open-design/contracts/api/handoff';
-import { resolveDaemonUrl } from './daemon-url.js';
+import { daemonFetch, resolveCliDaemonUrl } from './cli-daemon-auth.js';
 
 interface HandoffCliResult {
   exitCode: number;
@@ -148,7 +148,7 @@ export async function runProjectHandoff(args: string[]): Promise<HandoffCliResul
 
   try {
     const daemonUrl = (
-      await resolveDaemonUrl(options.daemonUrl === undefined ? {} : { flagUrl: options.daemonUrl })
+      await resolveCliDaemonUrl(options.daemonUrl === undefined ? {} : { flagUrl: options.daemonUrl })
     ).replace(/\/$/, '');
     const body: HandoffRequest = {
       conversationId: options.conversationId,
@@ -157,7 +157,7 @@ export async function runProjectHandoff(args: string[]): Promise<HandoffCliResul
       ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
       ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
     };
-    const resp = await fetch(
+    const resp = await daemonFetch(
       `${daemonUrl}/api/projects/${encodeURIComponent(options.projectId)}/handoff`,
       {
         method: 'POST',

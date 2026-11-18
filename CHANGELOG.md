@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- [Added] The `odc` launcher can use a configured daemon without starting the local desktop. Remote CLI calls support operator authentication, and hosted MCP can return browser links on the configured public origin.
 - [Fixed] Owner sharing overlays, retained links, and publication progress now match the final sharing design. Published-link popovers retain comment-sync status text and retry actions without a bordered card; a previously published link stays copyable when workspace access is lost.
 - [Changed] Retired the official Nix flake, Home Manager/NixOS modules, and lockfile-coupled Nix CI maintenance. OpenDesign still discovers agent CLIs installed through Nix profiles on NixOS and nix-darwin hosts.
 
